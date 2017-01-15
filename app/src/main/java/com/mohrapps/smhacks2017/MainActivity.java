@@ -7,7 +7,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
@@ -181,6 +183,20 @@ public class MainActivity extends AppCompatActivity {
 
             mImageView.setImageBitmap(imageBitmap);
         }
+        if(requestCode == PICK_IMAGE && resultCode == RESULT_OK){
+            Uri selectedImage = data.getData();
+            String[] filePathColumn = {MediaStore.Images.Media.DATA};
+
+            Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+            cursor.moveToFirst();
+
+            int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+            String filePath = cursor.getString(columnIndex);
+            cursor.close();
+
+
+            Bitmap yourSelectedImage = BitmapFactory.decodeFile(filePath);
+        }
     }
 
     public View.OnClickListener goToCameraListener = new View.OnClickListener() {
@@ -242,4 +258,6 @@ public class MainActivity extends AppCompatActivity {
         mCurrentPhotoPath = image.getAbsolutePath();
         return image;
     }
+
+
 }

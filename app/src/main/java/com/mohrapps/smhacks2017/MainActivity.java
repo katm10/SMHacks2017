@@ -3,7 +3,6 @@ package com.mohrapps.smhacks2017;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -31,7 +30,6 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -237,6 +235,7 @@ public class MainActivity extends Activity {
                 startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
                 //  new MyAsyncTask().execute()
                 galleryAddPic();
+
             }
         }
     }
@@ -245,9 +244,12 @@ public class MainActivity extends Activity {
         Intent mediaScan = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
         mediaScan.setData(fileUri);
         this.sendBroadcast(mediaScan);
+
+        Log.d(TAG, "galleryAddPic: " +fileUri.getPath());
+        new MyAsyncTask().execute(fileUri.getPath());
     }
 
-    public File getFile() {
+  /*  public File getFile() {
         File folder = new File("sdcard/caera_app");
         if (!folder.exists()) {
             folder.mkdir();
@@ -285,7 +287,7 @@ public class MainActivity extends Activity {
         }
         return directory.getAbsolutePath();
     }
-
+*/
 
     public View.OnClickListener goToCameraListener = new View.OnClickListener() {
         @Override
@@ -329,7 +331,6 @@ public class MainActivity extends Activity {
         // Save a file: path for use with ACTION_VIEW intents'
 
         mCurrentPhotoPath = image.getAbsolutePath();
-        //   new MyAsyncTask().execute(mCurrentPhotoPath);
         return image;
     }
 
@@ -368,6 +369,8 @@ public class MainActivity extends Activity {
             String filePath = cursor.getString(columnIndex);
             cursor.close();
 
+            Log.d(TAG, "gallery: "+filePath);
+
             AsyncTask task = new MyAsyncTask().execute(filePath);
 
         }
@@ -388,9 +391,9 @@ public class MainActivity extends Activity {
         }
 
         protected void onPostExecute(Double result) {
-            if (nameTextString != null) {
-                nameText.setText(nameTextString);
-            }
+            Intent intent = new Intent(MainActivity.this, ActorInfo.class);
+            intent.putExtra("name",nameTextString);
+            startActivity(intent);
         }
 
         protected void onProgressUpdate(Integer... progress) {
@@ -448,7 +451,7 @@ public class MainActivity extends Activity {
                     Log.d(TAG, finalName);
                     nameTextString = finalName;
                 } else {
-                    nameTextString = "Sorry, I do not recognize that actor.";
+                    nameTextString = null;
                 }
 
             } catch (JSONException e) {

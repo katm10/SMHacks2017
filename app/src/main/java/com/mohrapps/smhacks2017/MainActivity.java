@@ -3,6 +3,7 @@ package com.mohrapps.smhacks2017;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -30,6 +31,7 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -42,6 +44,7 @@ import java.util.Date;
 
 public class MainActivity extends Activity {
     public static final int MY_PERMISSIONS_REQUEST_CAMERA = 100;
+    public static int REQUEST_TAKE_PHOTO = 10;
     public static int PICK_IMAGE = 0;
     public static final String ALLOW_KEY = "ALLOWED";
     public static final String CAMERA_PREF = "camera_pref";
@@ -53,6 +56,7 @@ public class MainActivity extends Activity {
     String nameTextString = null;
     String TAG = "MainActivity():";
     Button buttonOpenGallery;
+    Uri fileUri;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
     private static String[] PERMISSIONS_STORAGE = {
             Manifest.permission.READ_EXTERNAL_STORAGE,
@@ -206,36 +210,82 @@ public class MainActivity extends Activity {
         context.startActivity(i);
     }
 
+
+    //-------all camera stuff-----------------------
     private void openCamera() {
         Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        // Ensure that there's a camera activity to handle the intent
         if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+            // Create the File where the photo should go
+            File photoFile = null;
+            try {
+                photoFile = createImageFile();
+            } catch (Exception ex) {
+                Log.d(TAG, "IOException at openCamera()");
+            }
+            // Continue only if the File was successfully created
+            if (photoFile != null) {
+                Log.d(TAG, photoFile.toString());
+
+                 fileUri = Uri.fromFile(photoFile);
+                Log.d(TAG, fileUri.toString());
+                Log.d(TAG, Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString());
+//                Uri photoURI = FileProvider.getUriForFile(this,
+//                     "com.mohrapps.smhacks2017.MainActivity",
+//                     photoFile);
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+                startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
+                //  new MyAsyncTask().execute()
+                galleryAddPic();
+            }
         }
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-            Bundle extras = data.getExtras();
-            Bitmap imageBitmap = (Bitmap) extras.get("data");
-
-            mImageView.setImageBitmap(imageBitmap);
-        }
-        if (requestCode == PICK_IMAGE && resultCode == RESULT_OK) {
-            Uri selectedImage = data.getData();
-            String[] filePathColumn = {MediaStore.Images.Media.DATA};
-
-            Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
-            cursor.moveToFirst();
-
-            int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
-            String filePath = cursor.getString(columnIndex);
-            cursor.close();
-
-            AsyncTask task = new MyAsyncTask().execute(filePath);
-
-        }
+    public void galleryAddPic(){
+        Intent mediaScan = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+        mediaScan.setData(fileUri);
+        this.sendBroadcast(mediaScan);
     }
+
+    public File getFile() {
+        File folder = new File("sdcard/caera_app");
+        if (!folder.exists()) {
+            folder.mkdir();
+        }
+
+        File image_file = new File(folder, "cam_image.jpg");
+        return image_file;
+    }
+
+    private String saveToInternalStorage(Bitmap bitmapImage) {
+        ContextWrapper cw = new ContextWrapper(getApplicationContext());
+        // path to /data/data/yourapp/app_data/imageDir
+        File directory = cw.getDir("imageDir", Context.MODE_PRIVATE);
+        // Create imageDir
+        File mypath = new File(directory, "profile.jpg");
+
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(mypath);
+            // Use the compress method on the BitMap object to write image to the OutputStream
+            bitmapImage.compress(Bitmap.CompressFormat.PNG, 100, fos);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                fos.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        try {
+            new MyAsyncTask().execute(directory.getCanonicalPath());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return directory.getAbsolutePath();
+    }
+
 
     public View.OnClickListener goToCameraListener = new View.OnClickListener() {
         @Override
@@ -265,6 +315,25 @@ public class MainActivity extends Activity {
         }
     };
 
+    private File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        File image = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+
+        // Save a file: path for use with ACTION_VIEW intents'
+
+        mCurrentPhotoPath = image.getAbsolutePath();
+        //   new MyAsyncTask().execute(mCurrentPhotoPath);
+        return image;
+    }
+
+    //-----------------------gallery stuff--------------------------
     public View.OnClickListener goToGalleryListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {
@@ -281,27 +350,29 @@ public class MainActivity extends Activity {
         }
     };
 
-    private File createImageFile() throws IOException {
-        // Create an image file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-        String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
-        File image = File.createTempFile(
-                imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
-                storageDir      /* directory */
-        );
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            Bundle extras = data.getExtras();
+            Bitmap imageBitmap = (Bitmap) extras.get("data");
+            //  new MyAsyncTask().execute(imageBitmap);
+        }
+        if (requestCode == PICK_IMAGE && resultCode == RESULT_OK) {
+            Uri selectedImage = data.getData();
+            String[] filePathColumn = {MediaStore.Images.Media.DATA};
 
-        // Save a file: path for use with ACTION_VIEW intents
-        mCurrentPhotoPath = image.getAbsolutePath();
-        return image;
+            Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+            cursor.moveToFirst();
+
+            int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+            String filePath = cursor.getString(columnIndex);
+            cursor.close();
+
+            AsyncTask task = new MyAsyncTask().execute(filePath);
+
+        }
     }
-
-    public void setNameText(String name) {
-        nameText.setText(name);
-    }
-    //request is the url
-
+//-------------------------async task-----------------------------------------------
 
     private class MyAsyncTask extends AsyncTask<String, Integer, Double> {
 
@@ -328,35 +399,6 @@ public class MainActivity extends Activity {
 
         public void postData(String filePath) throws IOException {
             String request = "https://api.projectoxford.ai/vision/v1.0/models/celebrities/analyze";
-           /* byte[] postData = image.getBytes(StandardCharsets.UTF_8);
-            int postDataLength = postData.length;
-            URL url = null;
-            try {
-                url = new URL(request);
-                Log.d(TAG, "first try catch");
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
-            HttpURLConnection conn = null;
-            try {
-                conn = (HttpURLConnection) url.openConnection();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            conn.setDoOutput(true);
-            conn.setInstanceFollowRedirects(false);
-            try {
-                conn.setRequestMethod("POST");
-            } catch (ProtocolException e) {
-                e.printStackTrace();
-            }
-            conn.setRequestProperty("Content-Type","application/json");
-            conn.setRequestProperty("Ocp-Apim-Subscription-Key", "560626cd9826401082f820caf964af6c");
-            conn.setUseCaches(false);
-            try (OutputStream wr = conn.getOutputStream()) {
-                    wr.write(postData);
-                    Log.d(TAG, "last try");
-                }*/
             int BUFFER_SIZE = 4096;
             String method = "POST";
 

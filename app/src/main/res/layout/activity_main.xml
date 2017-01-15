@@ -12,19 +12,22 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/gotocamera_btn"
-        android:text="camera"/>
+        android:text="camera"
+        android:layout_alignParentTop="true"
+        android:layout_toEndOf="@+id/NametextView"
+        android:layout_marginStart="27dp" />
     <Button
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:id="@+id/gotogallery_btn"
         android:text="Gallery"
         android:layout_below="@+id/gotocamera_btn"
-        android:layout_toRightOf="@+id/thumbnailImageView"
-        android:layout_toEndOf="@+id/thumbnailImageView" />
+        android:layout_toEndOf="@+id/NametextView" />
     <ImageView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/thumbnailImageView"/>
+        android:id="@+id/thumbnailImageView"
+        android:layout_alignTop="@+id/gotocamera_btn" />
 
     <TextView
         android:layout_width="wrap_content"

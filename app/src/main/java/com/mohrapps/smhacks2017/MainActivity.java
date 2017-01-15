@@ -9,8 +9,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -18,17 +18,29 @@ import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AlertDialog;
-import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
+import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     public static final int MY_PERMISSIONS_REQUEST_CAMERA = 100;
     public static int PICK_IMAGE = 0;
     public static final String ALLOW_KEY = "ALLOWED";
@@ -37,18 +49,41 @@ public class MainActivity extends AppCompatActivity {
     static final int REQUEST_IMAGE_CAPTURE = 1;
     ImageView mImageView;
     String mCurrentPhotoPath;
+    String TAG = "MainActivity():";
     Button buttonOpenGallery;
+    private static final int REQUEST_EXTERNAL_STORAGE = 1;
+    private static String[] PERMISSIONS_STORAGE = {
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
+    };
+
+    public static void verifyStoragePermissions(Activity activity) {
+        // Check if we have write permission
+        int permission = ActivityCompat.checkSelfPermission(activity, Manifest.permission.WRITE_EXTERNAL_STORAGE);
+
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            // We don't have permission so prompt the user
+            ActivityCompat.requestPermissions(
+                    activity,
+                    PERMISSIONS_STORAGE,
+                    REQUEST_EXTERNAL_STORAGE
+            );
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        buttonOpenCamera = (Button)findViewById(R.id.gotocamera_btn);
+        verifyStoragePermissions(MainActivity.this);
+        buttonOpenCamera = (Button) findViewById(R.id.gotocamera_btn);
         buttonOpenCamera.setOnClickListener(goToCameraListener);
-        mImageView = (ImageView)findViewById(R.id.thumbnailImageView);
-        buttonOpenGallery = (Button)findViewById(R.id.gotogallery_btn);
+        mImageView = (ImageView) findViewById(R.id.thumbnailImageView);
+        buttonOpenGallery = (Button) findViewById(R.id.gotogallery_btn);
         buttonOpenGallery.setOnClickListener(goToGalleryListener);
+        //new MyAsyncTask().execute("{\"url\":\"https://www.wired.com/wp-content/uploads/blogs/wiredenterprise/wp-content/uploads/2014/01/micro-soft-story.jpg\"}");
     }
+
     public static void saveToPreferences(Context context, String key, Boolean allowed) {
         SharedPreferences myPrefs = context.getSharedPreferences(CAMERA_PREF,
                 Context.MODE_PRIVATE);
@@ -183,7 +218,7 @@ public class MainActivity extends AppCompatActivity {
 
             mImageView.setImageBitmap(imageBitmap);
         }
-        if(requestCode == PICK_IMAGE && resultCode == RESULT_OK){
+        if (requestCode == PICK_IMAGE && resultCode == RESULT_OK) {
             Uri selectedImage = data.getData();
             String[] filePathColumn = {MediaStore.Images.Media.DATA};
 
@@ -194,8 +229,7 @@ public class MainActivity extends AppCompatActivity {
             String filePath = cursor.getString(columnIndex);
             cursor.close();
 
-
-            Bitmap yourSelectedImage = BitmapFactory.decodeFile(filePath);
+            new MyAsyncTask().execute(filePath);
         }
     }
 
@@ -237,7 +271,7 @@ public class MainActivity extends AppCompatActivity {
             pickIntent.setType("image/*");
 
             Intent chooserIntent = Intent.createChooser(getIntent, "Select Image");
-            chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[] {pickIntent});
+            chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[]{pickIntent});
 
             startActivityForResult(chooserIntent, PICK_IMAGE);
         }
@@ -259,5 +293,115 @@ public class MainActivity extends AppCompatActivity {
         return image;
     }
 
+    //request is the url
 
+
+    private class MyAsyncTask extends AsyncTask<String, Integer, Double> {
+
+        @Override
+        protected Double doInBackground(String... params) {
+            // TODO Auto-generated method stub
+            try {
+                postData(params[0]);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return null;
+        }
+
+        protected void onPostExecute(Double result) {
+            // pb.setVisibility(View.GONE);
+            Toast.makeText(getApplicationContext(), "command sent", Toast.LENGTH_LONG).show();
+        }
+
+        protected void onProgressUpdate(Integer... progress) {
+            // pb.setProgress(progress[0]);
+        }
+
+        public void postData(String filePath) throws IOException {
+            String request = "https://api.projectoxford.ai/vision/v1.0/models/celebrities/analyze";
+           /* byte[] postData = image.getBytes(StandardCharsets.UTF_8);
+            int postDataLength = postData.length;
+            URL url = null;
+            try {
+                url = new URL(request);
+                Log.d(TAG, "first try catch");
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+            HttpURLConnection conn = null;
+            try {
+                conn = (HttpURLConnection) url.openConnection();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            conn.setDoOutput(true);
+            conn.setInstanceFollowRedirects(false);
+            try {
+                conn.setRequestMethod("POST");
+            } catch (ProtocolException e) {
+                e.printStackTrace();
+            }
+            conn.setRequestProperty("Content-Type","application/json");
+            conn.setRequestProperty("Ocp-Apim-Subscription-Key", "560626cd9826401082f820caf964af6c");
+            conn.setUseCaches(false);
+            try (OutputStream wr = conn.getOutputStream()) {
+                    wr.write(postData);
+                    Log.d(TAG, "last try");
+                }*/
+            int BUFFER_SIZE = 4096;
+            String method = "POST";
+
+            File uploadFile = new File(filePath);
+
+            if (!(uploadFile.isFile() && uploadFile.exists())) {
+                Log.d(TAG, "File Not Found !!!!");
+                return;
+            }
+
+            URL url = null;
+            try {
+                url = new URL(request);
+                Log.d(TAG, "first try catch");
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+            HttpURLConnection httpConn = (HttpURLConnection) url.openConnection();
+
+            String contentType = "application/octet-stream";
+
+            httpConn.setDoOutput(true);
+            httpConn.setInstanceFollowRedirects(false);
+            httpConn.setRequestMethod(method);
+            httpConn.setRequestProperty("Content-type", contentType);
+            httpConn.setRequestProperty("Ocp-Apim-Subscription-Key", "560626cd9826401082f820caf964af6c");
+            OutputStream outputStream = httpConn.getOutputStream();
+
+            FileInputStream inputStream = new FileInputStream(uploadFile);
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead = -1;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            Reader in = new BufferedReader(new InputStreamReader(httpConn.getInputStream(), "UTF-8"));
+            StringBuilder sb = new StringBuilder();
+            for (int c; (c = in.read()) >= 0; )
+                sb.append((char) c);
+            String response = sb.toString();
+            try {
+                JSONObject jsonObject = new JSONObject(response);
+                String name = jsonObject.getJSONObject("result").getJSONArray("celebrities").get(0).toString();
+                JSONObject nameObject = new JSONObject(name);
+                String finalName = nameObject.get("name").toString();
+                Log.d(TAG, finalName);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            Log.d(TAG, response);
+
+        }
+
+    }
 }

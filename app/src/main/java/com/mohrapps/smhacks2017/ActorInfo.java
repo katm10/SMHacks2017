@@ -18,9 +18,9 @@ import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -43,16 +43,12 @@ public class ActorInfo extends AppCompatActivity {
         actorNameView = (TextView) findViewById(R.id.ActorName);
         actorPictureView = (ImageView) findViewById(R.id.actorPicture);
         moviesListView = (ListView) findViewById(R.id.moviesList);
-        bioView = (TextView)findViewById(R.id.biotextView);
+        bioView = (TextView) findViewById(R.id.biotextView);
         Intent intent = getIntent();
         actorName = intent.getStringExtra("name");
         if (actorName != null) {
-            actorName = actorName.replace(' ', '+');
-            try {
-                new thisAsyncTask().execute(new URL("http://www.myapifilms.com/imdb/idIMDB?name=" + actorName + "&token=6282a924-e31a-49af-b9da-96bebca9bedc&format=json&language=en-us&filmography=1"));
-            } catch (MalformedURLException e) {
-                e.printStackTrace();
-            }
+
+            new thisAsyncTask().execute(actorName);
 
         } else {
             actorNameView.setText("Sorry, I do not recognize that actor.");
@@ -73,7 +69,7 @@ public class ActorInfo extends AppCompatActivity {
             bioView.setText(actorJSON.getJSONObject("data").getJSONArray("names").getJSONObject(0).getString("bio"));
             List<String> list = new ArrayList<String>();
             JSONArray array = actorJSON.getJSONObject("data").getJSONArray("names").getJSONObject(0).getJSONArray("filmographies").getJSONObject(0).getJSONArray("filmography");
-            for(int i = 0 ; i < array.length() ; i++){
+            for (int i = 0; i < array.length(); i++) {
                 list.add(array.getJSONObject(i).getString("title"));
             }
             ArrayAdapter<String> itemsAdapter =
@@ -86,18 +82,19 @@ public class ActorInfo extends AppCompatActivity {
     }
 
 
-    class thisAsyncTask extends AsyncTask<URL, Void, Long> {
+    class thisAsyncTask extends AsyncTask<String, Void, Long> {
         private String result;
 
         @Override
-        protected Long doInBackground(URL... urls) {
-            int count = urls.length;
+        protected Long doInBackground(String... params) {
+            int count = params.length;
             long totalSize = 0;
             StringBuilder resultBuilder = new StringBuilder();
             for (int i = 0; i < count; i++) {
                 try {
+                    InputStream is = getAssets().open(actorName + ".json");
                     // Read all the text returned by the server
-                    InputStreamReader reader = new InputStreamReader(urls[i].openStream());
+                    InputStreamReader reader = new InputStreamReader(is);
                     Log.d(TAG, "past input reader");
                     BufferedReader in = new BufferedReader(reader);
                     Log.d(TAG, "past buffer reader");

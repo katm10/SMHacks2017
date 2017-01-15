@@ -17,6 +17,7 @@ import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
 import android.view.View;
@@ -228,9 +229,9 @@ public class MainActivity extends Activity {
                  fileUri = Uri.fromFile(photoFile);
                 Log.d(TAG, fileUri.toString());
                 Log.d(TAG, Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString());
-//                Uri photoURI = FileProvider.getUriForFile(this,
-//                     "com.mohrapps.smhacks2017.MainActivity",
-//                     photoFile);
+                Uri photoURI = FileProvider.getUriForFile(this,
+                     "com.mohrapps.smhacks2017.MainActivity",
+                     photoFile);
                 takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
                 startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
                 //  new MyAsyncTask().execute()
@@ -245,6 +246,7 @@ public class MainActivity extends Activity {
         mediaScan.setData(fileUri);
         this.sendBroadcast(mediaScan);
 
+        Log.d(TAG, "galleryaddPic:"+fileUri);
         Log.d(TAG, "galleryAddPic: " +fileUri.getPath());
         new MyAsyncTask().execute(fileUri.getPath());
     }
@@ -321,7 +323,7 @@ public class MainActivity extends Activity {
         // Create an image file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         File image = File.createTempFile(
                 imageFileName,  /* prefix */
                 ".jpg",         /* suffix */
@@ -433,10 +435,12 @@ public class MainActivity extends Activity {
             FileInputStream inputStream = new FileInputStream(uploadFile);
             byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead = -1;
-
+            int count = 0;
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 outputStream.write(buffer, 0, bytesRead);
+                count += bytesRead;
             }
+            Log.d(TAG, "Bytes read: "+ count);
             Reader in = new BufferedReader(new InputStreamReader(httpConn.getInputStream(), "UTF-8"));
             StringBuilder sb = new StringBuilder();
             for (int c; (c = in.read()) >= 0; )

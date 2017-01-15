@@ -3,7 +3,6 @@ package com.mohrapps.smhacks2017;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
-import android.content.ContextWrapper;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -18,6 +17,7 @@ import android.provider.MediaStore;
 import android.provider.Settings;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AlertDialog;
 import android.util.Log;
 import android.view.View;
@@ -31,7 +31,6 @@ import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -230,13 +229,14 @@ public class MainActivity extends Activity {
                  fileUri = Uri.fromFile(photoFile);
                 Log.d(TAG, fileUri.toString());
                 Log.d(TAG, Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES).toString());
-//                Uri photoURI = FileProvider.getUriForFile(this,
-//                     "com.mohrapps.smhacks2017.MainActivity",
-//                     photoFile);
+                Uri photoURI = FileProvider.getUriForFile(this,
+                     "com.mohrapps.smhacks2017.MainActivity",
+                     photoFile);
                 takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
                 startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
                 //  new MyAsyncTask().execute()
                 galleryAddPic();
+
             }
         }
     }
@@ -245,9 +245,13 @@ public class MainActivity extends Activity {
         Intent mediaScan = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
         mediaScan.setData(fileUri);
         this.sendBroadcast(mediaScan);
+
+        Log.d(TAG, "galleryaddPic:"+fileUri);
+        Log.d(TAG, "galleryAddPic: " +fileUri.getPath());
+        new MyAsyncTask().execute(fileUri.getPath());
     }
 
-    public File getFile() {
+  /*  public File getFile() {
         File folder = new File("sdcard/caera_app");
         if (!folder.exists()) {
             folder.mkdir();
@@ -285,7 +289,7 @@ public class MainActivity extends Activity {
         }
         return directory.getAbsolutePath();
     }
-
+*/
 
     public View.OnClickListener goToCameraListener = new View.OnClickListener() {
         @Override
@@ -319,7 +323,7 @@ public class MainActivity extends Activity {
         // Create an image file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         String imageFileName = "JPEG_" + timeStamp + "_";
-        File storageDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES);
+        File storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES);
         File image = File.createTempFile(
                 imageFileName,  /* prefix */
                 ".jpg",         /* suffix */
@@ -329,7 +333,6 @@ public class MainActivity extends Activity {
         // Save a file: path for use with ACTION_VIEW intents'
 
         mCurrentPhotoPath = image.getAbsolutePath();
-        //   new MyAsyncTask().execute(mCurrentPhotoPath);
         return image;
     }
 
@@ -368,6 +371,8 @@ public class MainActivity extends Activity {
             String filePath = cursor.getString(columnIndex);
             cursor.close();
 
+            Log.d(TAG, "gallery: "+filePath);
+
             AsyncTask task = new MyAsyncTask().execute(filePath);
 
         }
@@ -388,9 +393,9 @@ public class MainActivity extends Activity {
         }
 
         protected void onPostExecute(Double result) {
-            if (nameTextString != null) {
-                nameText.setText(nameTextString);
-            }
+            Intent intent = new Intent(MainActivity.this, ActorInfo.class);
+            intent.putExtra("name",nameTextString);
+            startActivity(intent);
         }
 
         protected void onProgressUpdate(Integer... progress) {
@@ -430,10 +435,12 @@ public class MainActivity extends Activity {
             FileInputStream inputStream = new FileInputStream(uploadFile);
             byte[] buffer = new byte[BUFFER_SIZE];
             int bytesRead = -1;
-
+            int count = 0;
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 outputStream.write(buffer, 0, bytesRead);
+                count += bytesRead;
             }
+            Log.d(TAG, "Bytes read: "+ count);
             Reader in = new BufferedReader(new InputStreamReader(httpConn.getInputStream(), "UTF-8"));
             StringBuilder sb = new StringBuilder();
             for (int c; (c = in.read()) >= 0; )
@@ -448,7 +455,7 @@ public class MainActivity extends Activity {
                     Log.d(TAG, finalName);
                     nameTextString = finalName;
                 } else {
-                    nameTextString = "Sorry, I do not recognize that actor.";
+                    nameTextString = null;
                 }
 
             } catch (JSONException e) {

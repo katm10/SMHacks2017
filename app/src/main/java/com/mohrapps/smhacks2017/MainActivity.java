@@ -22,7 +22,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.Toast;
+import android.widget.TextView;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -49,6 +49,8 @@ public class MainActivity extends Activity {
     static final int REQUEST_IMAGE_CAPTURE = 1;
     ImageView mImageView;
     String mCurrentPhotoPath;
+    TextView nameText;
+    String nameTextString = null;
     String TAG = "MainActivity():";
     Button buttonOpenGallery;
     private static final int REQUEST_EXTERNAL_STORAGE = 1;
@@ -81,6 +83,7 @@ public class MainActivity extends Activity {
         mImageView = (ImageView) findViewById(R.id.thumbnailImageView);
         buttonOpenGallery = (Button) findViewById(R.id.gotogallery_btn);
         buttonOpenGallery.setOnClickListener(goToGalleryListener);
+        nameText = (TextView) findViewById(R.id.NametextView);
         //new MyAsyncTask().execute("{\"url\":\"https://www.wired.com/wp-content/uploads/blogs/wiredenterprise/wp-content/uploads/2014/01/micro-soft-story.jpg\"}");
     }
 
@@ -229,7 +232,8 @@ public class MainActivity extends Activity {
             String filePath = cursor.getString(columnIndex);
             cursor.close();
 
-            new MyAsyncTask().execute(filePath);
+            AsyncTask task = new MyAsyncTask().execute(filePath);
+
         }
     }
 
@@ -293,6 +297,9 @@ public class MainActivity extends Activity {
         return image;
     }
 
+    public void setNameText(String name) {
+        nameText.setText(name);
+    }
     //request is the url
 
 
@@ -310,8 +317,9 @@ public class MainActivity extends Activity {
         }
 
         protected void onPostExecute(Double result) {
-            // pb.setVisibility(View.GONE);
-            Toast.makeText(getApplicationContext(), "command sent", Toast.LENGTH_LONG).show();
+            if (nameTextString != null) {
+                nameText.setText(nameTextString);
+            }
         }
 
         protected void onProgressUpdate(Integer... progress) {
@@ -391,10 +399,16 @@ public class MainActivity extends Activity {
             String response = sb.toString();
             try {
                 JSONObject jsonObject = new JSONObject(response);
-                String name = jsonObject.getJSONObject("result").getJSONArray("celebrities").get(0).toString();
-                JSONObject nameObject = new JSONObject(name);
-                String finalName = nameObject.get("name").toString();
-                Log.d(TAG, finalName);
+                if (jsonObject.getJSONObject("result").getJSONArray("celebrities").length() != 0) {
+                    String name = jsonObject.getJSONObject("result").getJSONArray("celebrities").get(0).toString();
+                    JSONObject nameObject = new JSONObject(name);
+                    String finalName = nameObject.get("name").toString();
+                    Log.d(TAG, finalName);
+                    nameTextString = finalName;
+                } else {
+                    nameTextString = "Sorry, I do not recognize that actor.";
+                }
+
             } catch (JSONException e) {
                 e.printStackTrace();
             }
